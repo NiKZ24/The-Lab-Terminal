@@ -333,7 +333,79 @@ function useWhales(addresses) {
   return { data, tick, takeEvents, reload: load };
 }
 
-/* ════════════════════════════ DATA: NEWS (CryptoCompare, free, no key) ════════════════════════════ */
+/* ════════════════════════════ DATA: GLOBAL LEADERBOARD (best-effort, via serverless) ════════════════════════════ */
+
+function useLeaderboard() {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState(null);
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/leaderboard");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (!j.rows || !j.rows.length) throw new Error("empty");
+      setRows(j.rows);
+      setErr(null);
+    } catch (e) { setErr(String(e.message || e)); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  useInterval(load, 5 * 60e3);
+  return { rows, err, reload: load };
+}
+
+/* ════════════════════════════ DATA: AGGREGATE POSITIONING (cohort of addresses) ════════════════════════════ */
+// Fetches clearinghouseState for a set of addresses (throttled) and aggregates per coin:
+// long/short notional, trader counts, majority side, L/S ratio. Powers the Hyperdash-style table.
+
+function usePositioning(addresses, markets) {
+  const [agg, setAgg] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [err, setErr] = useState(null);
+  const key = addresses.slice(0, 40).join(",");
+
+  const load = useCallback(async () => {
+    const addrs = addresses.slice(0, 40);
+    if (!addrs.length) { setAgg(null); return; }
+    const byCoin = {};
+    let done = 0, ok = 0;
+    for (const addr of addrs) {
+      try {
+        const j = await hlPost({ type: "clearinghouseState", user: addr });
+        ok++;
+        (j.assetPositions || []).forEach((ap) => {
+          const p = ap.position || {};
+          const szi = +p.szi || 0;
+          if (!szi) return;
+          const notion = Math.abs(+p.positionValue || 0);
+          const c = byCoin[p.coin] || (byCoin[p.coin] = { coin: p.coin, longN: 0, shortN: 0, longC: 0, shortC: 0, pnl: 0 });
+          if (szi > 0) { c.longN += notion; c.longC++; } else { c.shortN += notion; c.shortC++; }
+          c.pnl += +p.unrealizedPnl || 0;
+        });
+      } catch (e) { /* skip this wallet */ }
+      done++; setProgress(done / addrs.length);
+      await new Promise((r) => setTimeout(r, 90));
+    }
+    if (!ok) { setErr("could not load positions"); setAgg(null); return; }
+    const rows = Object.values(byCoin).map((c) => {
+      const total = c.longN + c.shortN;
+      return {
+        ...c, total,
+        majSide: c.longN >= c.shortN ? "LONG" : "SHORT",
+        majPct: total ? (Math.max(c.longN, c.shortN) / total) * 100 : 50,
+        lsRatio: c.shortN > 0 ? c.longN / c.shortN : (c.longN > 0 ? Infinity : 0),
+        traders: c.longC + c.shortC,
+      };
+    }).sort((a, b) => b.total - a.total);
+    setAgg({ rows, wallets: ok, ts: Date.now() });
+    setErr(null);
+  }, [key]); // eslint-disable-line
+
+  useEffect(() => { load(); }, [load]);
+  useInterval(load, 90e3);
+  return { agg, progress, err, reload: load };
+}
+
+/* ════════════════════════════ DATA: NEWS (multi-source via serverless) ════════════════════════════ */
 
 function useNews() {
   const [items, setItems] = useState(null);
@@ -1317,7 +1389,7 @@ function FundingPanel({ markets, setSelSym }) {
               {sorted.slice(0, 40).map((r) => {
                 const hot = r.aprAbs >= 100;
                 return (
-                  <tr key={r.coin} className="row-click" onClick={() => setSelSym(r.coin)} style={hot ? { background: "rgba(245,166,35,.05)" } : null}>
+                  <tr key={r.coin} className="row-click" onClick={() => setSelSym(r.coin)} style={hot ? { background: "rgba(255,255,255,.04)" } : null}>
                     <td><div className="coin-cell"><span className="coin-sym">{r.coin}</span>{hot ? <Flame size={10} className="accc" /> : null}</div></td>
                     <td className="ta-r"><Num v={r.mark} /></td>
                     <td className="ta-r"><span className={pctClass(r.funding)}>{(r.funding * 100).toFixed(4)}%</span></td>
@@ -1377,10 +1449,108 @@ function OIPanel({ markets, setSelSym }) {
   );
 }
 
-function WhaleTab({ wallets, setWallets, whales, markets, setSelSym }) {
+function LeaderboardPanel({ lb, setSelWallet }) {
+  const [win, setWin] = useState("day");
+  const WINS = [["day", "24H"], ["week", "7D"], ["month", "30D"], ["allTime", "ALL"]];
+  const rows = useMemo(() => {
+    if (!lb.rows) return null;
+    return [...lb.rows]
+      .map((r) => ({ ...r, w: r.windows[win] || { pnl: 0, roi: 0, vlm: 0 } }))
+      .sort((a, b) => b.w.pnl - a.w.pnl)
+      .slice(0, 30);
+  }, [lb.rows, win]);
+
+  return (
+    <Panel title="Global Leaderboard" icon={TrendingUp}
+      right={<>
+        <div className="seg">{WINS.map(([k, l]) => <button key={k} className={"seg-btn" + (win === k ? " on" : "")} onClick={() => setWin(k)}>{l}</button>)}</div>
+      </>} bodyClass="pad0">
+      {lb.err && !lb.rows ? (
+        <EmptyState icon={TrendingUp} title="Global leaderboard unavailable"
+          sub="Hyperliquid's public leaderboard feed couldn't be reached from here. The tracked-wallet leaderboard below still works — add wallets to rank them." />
+      ) : !rows ? <SkeletonRows n={8} /> : (
+        <div className="tbl-w scroll" style={{ maxHeight: 360 }}>
+          <table className="tbl">
+            <thead><tr><th>#</th><th>Trader</th><th className="ta-r">PnL ({WINS.find((w) => w[0] === win)[1]})</th><th className="ta-r">ROI</th><th className="ta-r">Volume</th><th className="ta-r">Equity</th></tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.addr} className="row-click" onClick={() => setSelWallet && setSelWallet(r.addr)}>
+                  <td className="dim2">{i + 1}</td>
+                  <td><div className="coin-cell"><span className="coin-sym">{r.displayName || shortAddr(r.addr)}</span></div></td>
+                  <td className="ta-r"><span className={pctClass(r.w.pnl)}>{fmtUsd(r.w.pnl, { plus: true })}</span></td>
+                  <td className="ta-r"><Pct v={r.w.roi * 100} dp={1} /></td>
+                  <td className="ta-r dimtxt">{fmtUsd(r.w.vlm)}</td>
+                  <td className="ta-r dimtxt">{fmtUsd(r.accountValue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function PositioningPanel({ pos, markets, setSelSym }) {
+  const [sort, setSort] = useState("total");
+  const rows = useMemo(() => {
+    if (!pos.agg) return null;
+    return [...pos.agg.rows].sort((a, b) => (b[sort] === Infinity ? 1e18 : b[sort]) - (a[sort] === Infinity ? 1e18 : a[sort])).slice(0, 24);
+  }, [pos.agg, sort]);
+  const TH = ({ k, children }) => (
+    <th className="ta-r"><span className={"th-btn" + (sort === k ? " on" : "")} onClick={() => setSort(k)}>{children}{sort === k ? " ↓" : ""}</span></th>
+  );
+
+  return (
+    <Panel title="Cohort Positioning" icon={Layers}
+      right={<>
+        <span className="tag est">{pos.agg ? pos.agg.wallets + " wallets" : pos.progress > 0 ? Math.round(pos.progress * 100) + "%" : "…"}</span>
+        <span className="dim2" style={{ fontSize: 9 }}>aggregated long vs short</span>
+      </>} bodyClass="pad0">
+      {pos.err && !pos.agg ? (
+        <EmptyState icon={Layers} title="No positioning data"
+          sub="This aggregates open positions across the leaderboard cohort (and your tracked wallets) to show where the crowd is long vs short. Add wallets or wait for the leaderboard feed." />
+      ) : !rows ? <SkeletonRows n={8} /> : (
+        <div className="tbl-w scroll" style={{ maxHeight: 360 }}>
+          <table className="tbl">
+            <thead><tr><th>Asset</th><th style={{ width: 150 }}>Long / Short</th><TH k="total">Total Notional</TH><TH k="lsRatio">L/S Ratio</TH><th className="ta-r">Maj. Side</th><th className="ta-r">Traders</th><TH k="pnl">Cohort uPnL</TH></tr></thead>
+            <tbody>
+              {rows.map((r) => {
+                const longPct = r.total ? (r.longN / r.total) * 100 : 50;
+                return (
+                  <tr key={r.coin} className="row-click" onClick={() => setSelSym(r.coin)}>
+                    <td className="coin-sym">{r.coin}</td>
+                    <td>
+                      <div style={{ display: "flex", height: 7, borderRadius: 3, overflow: "hidden", background: "var(--dn-soft)", minWidth: 120 }}>
+                        <div style={{ width: longPct + "%", background: "var(--up)" }} />
+                        <div style={{ width: (100 - longPct) + "%", background: "var(--dn)" }} />
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8.5, marginTop: 2 }}>
+                        <span className="up">{longPct.toFixed(0)}%L</span><span className="dn">{(100 - longPct).toFixed(0)}%S</span>
+                      </div>
+                    </td>
+                    <td className="ta-r"><Num v={r.total} fmt={fmtUsd} /></td>
+                    <td className="ta-r dimtxt">{r.lsRatio === Infinity ? "∞" : r.lsRatio.toFixed(2)}</td>
+                    <td className="ta-r"><span className={"tag " + (r.majSide === "LONG" ? "long" : "short")}>{r.majSide} {r.majPct.toFixed(0)}%</span></td>
+                    <td className="ta-r dimtxt">{r.longC}<span className="up">L</span> / {r.shortC}<span className="dn">S</span></td>
+                    <td className="ta-r"><span className={pctClass(r.pnl)}>{fmtUsd(r.pnl, { plus: true })}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function WhaleTab({ wallets, setWallets, whales, markets, setSelSym, lb, pos }) {
   return (
     <div className="grid">
       <div className="g12"><WalletBar wallets={wallets} setWallets={setWallets} whales={whales} /></div>
+      <div className="g6"><LeaderboardPanel lb={lb} /></div>
+      <div className="g6"><PositioningPanel pos={pos} markets={markets} setSelSym={setSelSym} /></div>
       <div className="g12"><PositionsPanel wallets={wallets} whales={whales} markets={markets} /></div>
       <div className="g6"><LiqHeatmap wallets={wallets} whales={whales} markets={markets} /></div>
       <div className="g6"><FundingPanel markets={markets} setSelSym={setSelSym} /></div>
@@ -1605,7 +1775,7 @@ function Ticker({ markets, watchlist }) {
 const TABS = [
   { id: "overview", label: "Overview", icon: Layers },
   { id: "charts", label: "Charting", icon: LineChart },
-  { id: "whale", label: "Whale Intel", icon: Eye },
+  { id: "whale", label: "Smart Money", icon: Eye },
   { id: "news", label: "News & Sentiment", icon: Newspaper },
 ];
 
@@ -1669,6 +1839,13 @@ function Dashboard() {
   const markets = useMarkets();
   const addrList = useMemo(() => wallets.map((w) => w.addr), [wallets]);
   const whales = useWhales(addrList);
+  const lb = useLeaderboard();
+  const cohortAddrs = useMemo(() => {
+    const top = lb.rows ? lb.rows.slice(0, 30).map((r) => r.addr) : [];
+    const set = new Set([...top, ...addrList]);
+    return Array.from(set);
+  }, [lb.rows, addrList]);
+  const pos = usePositioning(cohortAddrs, markets);
   const news = useNews();
   const fng = useFng();
   const macro = useMacro();
@@ -1684,7 +1861,7 @@ function Dashboard() {
   useEffect(() => {
     const l = document.createElement("link");
     l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap";
     document.head.appendChild(l);
     return () => { try { document.head.removeChild(l); } catch (e) { /* noop */ } };
   }, []);
@@ -1800,7 +1977,7 @@ function Dashboard() {
             <ErrorBoundary>
               {tab === "overview" ? <OverviewTab markets={markets} watchlist={watchlist} setWatchlist={setWatchlist} selSym={selSym} setSelSym={setSelSym} macro={macro} fng={fng} spot={spot} /> : null}
               {tab === "charts" ? <ChartTab markets={markets} selSym={selSym} setSelSym={setSelSym} watchlist={watchlist} settings={settings} setSettings={setSettings} /> : null}
-              {tab === "whale" ? <WhaleTab wallets={wallets} setWallets={setWallets} whales={whales} markets={markets} setSelSym={setSelSym} /> : null}
+              {tab === "whale" ? <WhaleTab wallets={wallets} setWallets={setWallets} whales={whales} markets={markets} setSelSym={setSelSym} lb={lb} pos={pos} /> : null}
               {tab === "news" ? <NewsTab news={news} fng={fng} /> : null}
               {tab === "admin" && profile && profile.is_admin ? <Admin /> : null}
             </ErrorBoundary>
