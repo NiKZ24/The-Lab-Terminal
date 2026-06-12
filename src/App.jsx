@@ -407,26 +407,74 @@ function usePositioning(addresses, markets) {
 
 /* ════════════════════════════ DATA: NEWS (multi-source via serverless) ════════════════════════════ */
 
+function parseRssClient(xml, sourceName) {
+  const out = [];
+  try {
+    const doc = new DOMParser().parseFromString(xml, "text/xml");
+    const items = doc.querySelectorAll("item, entry");
+    items.forEach((it) => {
+      const title = (it.querySelector("title")?.textContent || "").trim();
+      let link = it.querySelector("link")?.textContent?.trim() || "";
+      if (!link) { const le = it.querySelector("link"); if (le) link = le.getAttribute("href") || ""; }
+      const date = it.querySelector("pubDate, published, date")?.textContent || "";
+      if (!title || !link) return;
+      const ts = date ? Date.parse(date) : Date.now();
+      out.push({ id: link, title, url: link, source: sourceName, ts: isFinite(ts) ? ts : Date.now(), cats: [], sent: scoreHeadline(title) });
+    });
+  } catch (e) { /* ignore */ }
+  return out;
+}
+
 function useNews() {
   const [items, setItems] = useState(null);
   const [err, setErr] = useState(null);
   const load = useCallback(async () => {
+    const normalizeJson = (j) => (j.Data || []).map((n) => ({
+      id: n.id, title: n.title, url: n.url,
+      source: (n.source_info && n.source_info.name) || n.source || "news",
+      ts: (n.published_on || 0) * 1000,
+      cats: (n.categories || "").split("|").filter(Boolean).slice(0, 4),
+      sent: scoreHeadline(n.title),
+    }));
+    // 1) our serverless aggregator (works on Vercel)
     try {
-      let r = null;
-      try { const own = await fetch("/api/news"); if (own.ok) r = own; } catch (e2) { /* no serverless env */ }
-      if (!r) r = await fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN");
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const j = await r.json();
-      const arr = (j.Data || []).map((n) => ({
-        id: n.id, title: n.title, url: n.url,
-        source: (n.source_info && n.source_info.name) || n.source || "unknown",
-        ts: (n.published_on || 0) * 1000,
-        cats: (n.categories || "").split("|").filter(Boolean).slice(0, 4),
-        sent: scoreHeadline(n.title),
+      const r = await fetch("/api/news");
+      if (r.ok) {
+        const j = await r.json();
+        if (j && Array.isArray(j.Data) && j.Data.length) {
+          const arr = normalizeJson(j); arr.sort((a, b) => b.ts - a.ts);
+          setItems(arr); setErr(null); return;
+        }
+      }
+    } catch (e) { /* next */ }
+    // 2) direct CryptoCompare (CORS-enabled most of the time)
+    try {
+      const r = await fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN");
+      if (r.ok) {
+        const j = await r.json();
+        if (j && Array.isArray(j.Data) && j.Data.length) {
+          const arr = normalizeJson(j); arr.sort((a, b) => b.ts - a.ts);
+          setItems(arr); setErr(null); return;
+        }
+      }
+    } catch (e) { /* next */ }
+    // 3) public CORS proxy → crypto RSS feeds, parsed in the browser
+    const feeds = [
+      ["CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"],
+      ["Cointelegraph", "https://cointelegraph.com/rss"],
+      ["Decrypt", "https://decrypt.co/feed"],
+    ];
+    const proxy = (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
+    try {
+      const settled = await Promise.allSettled(feeds.map(async ([name, u]) => {
+        const r = await fetch(proxy(u));
+        if (!r.ok) throw new Error(name);
+        return parseRssClient(await r.text(), name);
       }));
-      arr.sort((a, b) => b.ts - a.ts);
-      setItems(arr);
-      setErr(null);
+      let all = [];
+      settled.forEach((s) => { if (s.status === "fulfilled") all = all.concat(s.value); });
+      if (all.length) { all.sort((a, b) => b.ts - a.ts); setItems(all.slice(0, 60)); setErr(null); return; }
+      throw new Error("all sources blocked");
     } catch (e) { setErr(String(e.message || e)); }
   }, []);
   useEffect(() => { load(); }, [load]);
