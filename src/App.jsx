@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import logoImg from "./assets/logo.png";
-import { Activity, AlertTriangle, BarChart3, Bell, Clock, ExternalLink, Eye, Flame, Gauge, Layers, LineChart, Newspaper, Plus, Radio, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Volume2, VolumeX, Wallet, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Bell, Clock, ExternalLink, Eye, Flame, Gauge, Layers, LineChart, Newspaper, Plus, Radio, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Volume2, VolumeX, Wallet, X, Zap, KeyRound, LogOut, User, ChevronDown } from "lucide-react";
+import { CSS, AUTH_CSS } from "./styles.js";
+import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import { PrefsProvider, usePref } from "./auth/prefs.jsx";
+import Auth from "./pages/Auth";
+import InviteGate from "./pages/InviteGate";
+import Admin from "./pages/Admin";
 
 /* ════════════════════════════ CONSTANTS ════════════════════════════ */
 
@@ -18,262 +24,6 @@ const DEFAULT_RULES = [
 
 /* ════════════════════════════ DESIGN SYSTEM ════════════════════════════ */
 
-const CSS = `
-:root{
-  --bg:#07080c; --bg2:#0a0c12; --panel:#0e1118; --panel2:#121622; --panel3:#161b2a;
-  --line:#1b2130; --line2:#27304a;
-  --txt:#e8ebf2; --txt2:#9aa3b8; --txt3:#5b6478;
-  --up:#0ecb81; --up-soft:rgba(14,203,129,.12); --dn:#f6465d; --dn-soft:rgba(246,70,93,.12);
-  --acc:#f5a623; --acc-soft:rgba(245,166,35,.13); --acc-glow:rgba(245,166,35,.35);
-  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
-  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{background:var(--bg);overflow:hidden}
-.app{display:grid;grid-template-columns:198px 1fr;height:100vh;width:100vw;background:
-  radial-gradient(1200px 600px at 78% -10%, rgba(245,166,35,.045), transparent 60%),
-  radial-gradient(900px 500px at -10% 110%, rgba(40,80,200,.05), transparent 55%),
-  var(--bg);
-  color:var(--txt);font-family:var(--sans);font-size:13px;overflow:hidden}
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#1d2433;border-radius:8px;border:2px solid var(--bg)}
-::-webkit-scrollbar-thumb:hover{background:#2a3450}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3)}
-.dimtxt{color:var(--txt2)} .dim2{color:var(--txt3)}
-.up{color:var(--up)} .dn{color:var(--dn)} .accc{color:var(--acc)}
-.link{color:var(--txt2);text-decoration:none} .link:hover{color:var(--acc)}
-.ta-r{text-align:right}
-
-/* ── sidebar ── */
-.sidebar{display:flex;flex-direction:column;border-right:1px solid var(--line);background:linear-gradient(180deg,var(--bg2),var(--bg));min-width:0}
-.brand{display:flex;align-items:center;gap:9px;padding:16px 14px 14px;border-bottom:1px solid var(--line)}
-.brand-dot{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(245,166,35,.22),rgba(245,166,35,.05));border:1px solid rgba(245,166,35,.4);color:var(--acc);flex-shrink:0;box-shadow:0 0 14px rgba(245,166,35,.12)}
-.brand-name{font-family:var(--mono);font-weight:700;font-size:12.5px;letter-spacing:.06em;line-height:1.25}
-.brand-sub{font-family:var(--mono);font-size:9.5px;color:var(--txt3);letter-spacing:.14em}
-.nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;border:1px solid transparent;color:var(--txt2);cursor:pointer;font-size:12.5px;font-weight:500;letter-spacing:.02em;transition:all .15s ease;background:none;text-align:left;width:100%;font-family:var(--sans)}
-.nav-item:hover{color:var(--txt);background:rgba(255,255,255,.03)}
-.nav-item.on{color:var(--acc);background:var(--acc-soft);border-color:rgba(245,166,35,.25)}
-.nav-ic{flex-shrink:0;opacity:.9}
-.side-foot{margin-top:auto;padding:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
-.src-row{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.05em}
-.src-row b{color:var(--txt2);font-weight:500}
-.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
-.dot.ok{background:var(--up);box-shadow:0 0 7px rgba(14,203,129,.7)}
-.dot.warn{background:var(--acc);box-shadow:0 0 7px var(--acc-glow)}
-.dot.err{background:var(--dn);box-shadow:0 0 7px rgba(246,70,93,.7)}
-.side-tag{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:.1em;line-height:1.6;padding-top:4px;border-top:1px dashed var(--line)}
-
-/* ── header ── */
-.main-col{display:flex;flex-direction:column;min-width:0;height:100vh}
-.hdr{display:flex;align-items:center;gap:14px;padding:0 16px;height:52px;border-bottom:1px solid var(--line);background:rgba(10,12,18,.7);backdrop-filter:blur(8px);flex-shrink:0}
-.hdr-title{font-size:14px;font-weight:600;letter-spacing:.02em}
-.hdr-sub{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.12em;margin-top:1px}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.clockbox{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;margin-right:2px}
-.clock-utc{font-family:var(--mono);font-size:12px;color:var(--txt);letter-spacing:.04em}
-.clock-loc{font-family:var(--mono);font-size:9.5px;color:var(--txt3);letter-spacing:.06em}
-.icon-btn{position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--txt2);cursor:pointer;transition:all .15s ease}
-.icon-btn:hover{color:var(--txt);border-color:var(--line2)}
-.icon-btn.on{color:var(--acc);border-color:rgba(245,166,35,.4);background:var(--acc-soft);box-shadow:0 0 12px rgba(245,166,35,.12)}
-.bell-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--dn);color:#fff;font-family:var(--mono);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(246,70,93,.6)}
-
-/* ── main / grid ── */
-.main{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px;min-height:0}
-.tabfade{animation:tabIn .18s ease}
-@keyframes tabIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
-.g4{grid-column:span 4}.g5{grid-column:span 5}.g6{grid-column:span 6}.g7{grid-column:span 7}.g8{grid-column:span 8}.g12{grid-column:span 12}
-@media(max-width:1180px){.g4,.g5,.g6,.g7,.g8{grid-column:span 12}}
-.sect-gap{height:12px}
-
-/* ── panel ── */
-.panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:9px;display:flex;flex-direction:column;min-width:0;box-shadow:0 1px 0 rgba(255,255,255,.025) inset, 0 8px 24px rgba(0,0,0,.25)}
-.panel-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);flex-shrink:0}
-.ph-ic{color:var(--acc);opacity:.85;flex-shrink:0}
-.ph-t{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2)}
-.ph-r{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--txt3)}
-.panel-b{padding:10px 12px;min-height:0}
-.pad0{padding:0}
-.scroll{overflow-y:auto}
-
-/* ── tables ── */
-.tbl-w{overflow:auto;min-width:0}
-.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.tbl th{position:sticky;top:0;z-index:2;background:var(--panel2);font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);user-select:none}
-.tbl td{padding:6.5px 10px;border-bottom:1px solid rgba(27,33,48,.55);color:var(--txt)}
-.tbl tbody tr{transition:background .12s ease}
-.tbl tbody tr:hover{background:rgba(255,255,255,.025)}
-.tbl tbody tr:last-child td{border-bottom:none}
-.th-btn{cursor:pointer;display:inline-flex;align-items:center;gap:3px}
-.th-btn:hover{color:var(--txt2)}
-.th-btn.on{color:var(--acc)}
-.row-click{cursor:pointer}
-.row-click.sel{background:var(--acc-soft)!important;box-shadow:inset 2px 0 0 var(--acc)}
-.coin-cell{display:flex;align-items:center;gap:7px}
-.coin-sym{font-weight:700;letter-spacing:.03em}
-.coin-x{opacity:0;color:var(--txt3);cursor:pointer;transition:opacity .12s}
-tr:hover .coin-x{opacity:1}
-.coin-x:hover{color:var(--dn)}
-
-/* ── numbers / flash ── */
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.fl-up{animation:flUp .7s ease-out}
-.fl-dn{animation:flDn .7s ease-out}
-@keyframes flUp{0%{color:var(--up);text-shadow:0 0 9px rgba(14,203,129,.65);background:rgba(14,203,129,.08)}100%{}}
-@keyframes flDn{0%{color:var(--dn);text-shadow:0 0 9px rgba(246,70,93,.65);background:rgba(246,70,93,.08)}100%{}}
-
-/* ── tags / chips / pills ── */
-.tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:4px;text-transform:uppercase}
-.tag.long{color:var(--up);background:var(--up-soft);border:1px solid rgba(14,203,129,.3)}
-.tag.short{color:var(--dn);background:var(--dn-soft);border:1px solid rgba(246,70,93,.3)}
-.tag.warn{color:var(--acc);background:var(--acc-soft);border:1px solid rgba(245,166,35,.3)}
-.tag.crit{color:var(--dn);background:var(--dn-soft);border:1px solid rgba(246,70,93,.4);box-shadow:0 0 10px rgba(246,70,93,.15)}
-.tag.info{color:var(--txt2);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
-.tag.est{color:var(--txt3);background:rgba(255,255,255,.03);border:1px dashed var(--line2);text-transform:none;letter-spacing:.03em;font-weight:500}
-.pills{display:flex;gap:4px;flex-wrap:wrap}
-.pill{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--txt2);cursor:pointer;letter-spacing:.05em;transition:all .13s ease}
-.pill:hover{color:var(--txt);border-color:var(--line2)}
-.pill.on{color:var(--acc);border-color:rgba(245,166,35,.45);background:var(--acc-soft)}
-.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.seg-btn{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:4px 10px;background:var(--panel);border:none;color:var(--txt3);cursor:pointer;transition:all .13s}
-.seg-btn:not(:last-child){border-right:1px solid var(--line)}
-.seg-btn:hover{color:var(--txt2)}
-.seg-btn.on{color:var(--acc);background:var(--acc-soft)}
-.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;padding:4px 9px;border-radius:6px;border:1px solid var(--line2);background:var(--panel2);color:var(--txt2)}
-.chip-x{cursor:pointer;color:var(--txt3);display:flex}
-.chip-x:hover{color:var(--dn)}
-
-/* ── inputs / buttons ── */
-.input{font-family:var(--mono);font-size:11.5px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:6px 9px;outline:none;transition:border .13s, box-shadow .13s;min-width:0}
-.input:focus{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 2px rgba(245,166,35,.12)}
-.input::placeholder{color:var(--txt3)}
-.select{font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:6px 8px;outline:none;cursor:pointer}
-.select:focus{border-color:rgba(245,166,35,.5)}
-.btn{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;padding:6px 12px;border-radius:6px;border:1px solid var(--line2);background:var(--panel3);color:var(--txt2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .14s ease}
-.btn:hover{color:var(--txt);border-color:#39456b}
-.btn-acc{color:#0a0a0a;background:linear-gradient(180deg,#ffc14d,var(--acc));border-color:rgba(245,166,35,.7);box-shadow:0 0 14px rgba(245,166,35,.18)}
-.btn-acc:hover{color:#000;box-shadow:0 0 20px rgba(245,166,35,.3);border-color:var(--acc)}
-.btn-ghost{background:transparent;border-color:var(--line)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.in-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:4px;display:block}
-.form-row{margin-bottom:11px}
-
-/* ── skeletons ── */
-.skel{position:relative;overflow:hidden;background:rgba(255,255,255,.035);border-radius:5px}
-.skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);animation:shim 1.4s infinite}
-@keyframes shim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
-.skel-row{height:13px;margin:11px 12px}
-
-/* ── stat cards ── */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.stat-card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:10px 11px;display:flex;flex-direction:column;gap:4px;transition:border .15s}
-.stat-card:hover{border-color:var(--line2)}
-.stat-l{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--txt3);display:flex;align-items:center;gap:6px}
-.stat-v{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:.01em}
-.stat-s{font-family:var(--mono);font-size:10px;color:var(--txt3)}
-
-/* ── ticker ── */
-.ticker{height:30px;border-top:1px solid var(--line);background:var(--bg2);overflow:hidden;position:relative;flex-shrink:0;display:flex;align-items:center}
-.ticker::before,.ticker::after{content:'';position:absolute;top:0;bottom:0;width:50px;z-index:2;pointer-events:none}
-.ticker::before{left:0;background:linear-gradient(90deg,var(--bg2),transparent)}
-.ticker::after{right:0;background:linear-gradient(-90deg,var(--bg2),transparent)}
-.tk-inner{display:flex;gap:30px;white-space:nowrap;animation:tk 52s linear infinite;padding-left:10px}
-.ticker:hover .tk-inner{animation-play-state:paused}
-@keyframes tk{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.tk-item{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px}
-.tk-sym{color:var(--txt2);font-weight:700;letter-spacing:.04em}
-
-/* ── toasts ── */
-.toasts{position:fixed;right:14px;bottom:44px;display:flex;flex-direction:column;gap:8px;z-index:200;width:330px}
-.toast{display:flex;gap:9px;padding:10px 11px;border-radius:8px;background:rgba(14,17,26,.92);backdrop-filter:blur(10px);border:1px solid var(--line2);animation:toastIn .22s ease;cursor:pointer}
-.toast.warn{border-color:rgba(245,166,35,.5);box-shadow:0 0 22px rgba(245,166,35,.16), 0 10px 30px rgba(0,0,0,.5)}
-.toast.crit{border-color:rgba(246,70,93,.55);box-shadow:0 0 22px rgba(246,70,93,.2), 0 10px 30px rgba(0,0,0,.5)}
-.toast.info{box-shadow:0 10px 30px rgba(0,0,0,.5)}
-@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-.toast-t{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
-.toast.warn .toast-t{color:var(--acc)} .toast.crit .toast-t{color:var(--dn)} .toast.info .toast-t{color:var(--txt2)}
-.toast-m{font-family:var(--mono);font-size:11px;color:var(--txt);line-height:1.45;word-break:break-word}
-.toast-x{margin-left:auto;color:var(--txt3);flex-shrink:0}
-
-/* ── slideover ── */
-.sl-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);z-index:150;animation:fIn .15s ease}
-@keyframes fIn{from{opacity:0}to{opacity:1}}
-.slideover{position:fixed;top:0;right:0;bottom:0;width:392px;max-width:92vw;background:var(--panel);border-left:1px solid var(--line2);z-index:160;display:flex;flex-direction:column;animation:slIn .2s ease;box-shadow:-20px 0 50px rgba(0,0,0,.5)}
-@keyframes slIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
-.sl-h{display:flex;align-items:center;gap:9px;padding:13px 14px;border-bottom:1px solid var(--line);flex-shrink:0}
-.sl-b{flex:1;overflow-y:auto;padding:13px 14px}
-.rule-item{display:flex;align-items:center;gap:9px;padding:8px 9px;border:1px solid var(--line);border-radius:7px;margin-bottom:7px;background:var(--bg2)}
-.rule-txt{font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--txt);flex:1;min-width:0}
-.log-item{padding:8px 9px;border-left:2px solid var(--line2);margin-bottom:7px;background:var(--bg2);border-radius:0 6px 6px 0}
-.log-item.warn{border-left-color:var(--acc)} .log-item.crit{border-left-color:var(--dn)}
-.log-t{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:.07em;margin-bottom:2px}
-.log-m{font-family:var(--mono);font-size:10.5px;color:var(--txt);line-height:1.5}
-
-/* ── toggle ── */
-.tgl{position:relative;width:30px;height:17px;border-radius:9px;background:var(--line);cursor:pointer;transition:background .15s;flex-shrink:0;border:none}
-.tgl::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--txt3);transition:all .15s}
-.tgl.on{background:rgba(245,166,35,.35)}
-.tgl.on::after{left:15px;background:var(--acc);box-shadow:0 0 8px var(--acc-glow)}
-
-/* ── liq heatmap ── */
-.heat{display:flex;flex-direction:column;height:312px;position:relative}
-.heat-row{flex:1;display:flex;align-items:stretch;gap:7px;min-height:0}
-.heat-lab{width:74px;font-family:var(--mono);font-size:9px;color:var(--txt3);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;letter-spacing:.02em}
-.heat-track{flex:1;display:flex;align-items:center;gap:2px;border-left:1px solid var(--line);padding-left:5px;position:relative}
-.heat-bar{height:62%;border-radius:2px;min-width:0;transition:width .35s ease}
-.heat-bar.long{background:linear-gradient(90deg,rgba(246,70,93,.85),rgba(246,70,93,.35));box-shadow:0 0 8px rgba(246,70,93,.25)}
-.heat-bar.short{background:linear-gradient(90deg,rgba(14,203,129,.85),rgba(14,203,129,.35));box-shadow:0 0 8px rgba(14,203,129,.25)}
-.heat-mark{position:absolute;left:74px;right:0;height:0;border-top:1.5px dashed var(--acc);z-index:3;pointer-events:none;filter:drop-shadow(0 0 4px var(--acc-glow))}
-.heat-mark span{position:absolute;right:0;top:-9px;font-family:var(--mono);font-size:9px;color:#0a0a0a;background:var(--acc);padding:1px 6px;border-radius:3px;font-weight:700}
-.heat-foot{font-family:var(--mono);font-size:10px;color:var(--txt3);padding-top:8px;border-top:1px dashed var(--line);margin-top:8px;min-height:30px;line-height:1.5}
-.legend{display:flex;gap:13px;align-items:center;font-family:var(--mono);font-size:9.5px;color:var(--txt3);letter-spacing:.04em}
-.ldot{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
-
-/* ── states ── */
-.err-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:26px 14px;color:var(--txt3);font-family:var(--mono);font-size:11px;text-align:center}
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:30px 18px;text-align:center}
-.e-ic{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--panel3);border:1px solid var(--line2);color:var(--txt3);margin-bottom:3px}
-.e-t{font-size:12.5px;font-weight:600;color:var(--txt2)}
-.e-s{font-family:var(--mono);font-size:10.5px;color:var(--txt3);line-height:1.6;max-width:330px}
-
-/* ── news ── */
-.news-item{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-bottom:1px solid rgba(27,33,48,.55);transition:background .12s}
-.news-item:hover{background:rgba(255,255,255,.02)}
-.n-meta{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9.5px;color:var(--txt3);letter-spacing:.05em}
-.n-src{color:var(--txt2);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
-.n-title{font-size:12.5px;line-height:1.45;color:var(--txt);text-decoration:none;display:flex;gap:6px;align-items:baseline}
-.n-title:hover{color:var(--acc)}
-.n-cats{display:flex;gap:4px;flex-wrap:wrap;margin-top:1px}
-.n-cat{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--txt3);border:1px solid var(--line);border-radius:3px;padding:1px 5px}
-.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-
-/* ── chart ── */
-.chart-box{height:calc(100vh - 332px);min-height:430px;position:relative;background:var(--bg2);border-radius:0 0 9px 9px;overflow:hidden}
-.tv-wrap{position:absolute;inset:0}
-.native-wrap{position:absolute;inset:0;cursor:crosshair}
-.ohlc-chip{position:absolute;top:9px;left:11px;z-index:5;font-family:var(--mono);font-size:10.5px;background:rgba(10,12,18,.85);border:1px solid var(--line2);border-radius:6px;padding:5px 9px;pointer-events:none;display:flex;gap:11px;backdrop-filter:blur(6px)}
-.cb-notice{position:absolute;bottom:10px;left:10px;z-index:6;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--acc);background:rgba(20,16,6,.9);border:1px solid rgba(245,166,35,.4);border-radius:6px;padding:6px 10px;box-shadow:0 0 16px rgba(245,166,35,.12)}
-.mini-item{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;transition:background .12s;border:1px solid transparent}
-.mini-item:hover{background:rgba(255,255,255,.03)}
-.mini-item.sel{background:var(--acc-soft);border-color:rgba(245,166,35,.3)}
-.kpi-row{display:flex;gap:0;border-bottom:1px solid var(--line);background:var(--panel2);border-radius:9px 9px 0 0;overflow-x:auto}
-.kpi{padding:10px 16px;border-right:1px solid var(--line);min-width:108px}
-.kpi-l{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--txt3);margin-bottom:3px}
-.kpi-v{font-family:var(--mono);font-size:14.5px;font-weight:600}
-
-/* ── misc ── */
-.addr{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.02em}
-.wal-head{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel3);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.spark{display:block}
-.hr{border:none;border-top:1px solid var(--line);margin:12px 0}
-.basis{font-size:9.5px}
-@media(max-width:1020px){.app{grid-template-columns:60px 1fr}.brand-name,.brand-sub,.nav-item span,.side-foot{display:none}.nav-item{justify-content:center;padding:9px 0}}
-`;
 
 /* ════════════════════════════ UTILITIES ════════════════════════════ */
 
@@ -590,7 +340,9 @@ function useNews() {
   const [err, setErr] = useState(null);
   const load = useCallback(async () => {
     try {
-      const r = await fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN");
+      let r = null;
+      try { const own = await fetch("/api/news"); if (own.ok) r = own; } catch (e2) { /* no serverless env */ }
+      if (!r) r = await fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN");
       if (!r.ok) throw new Error("HTTP " + r.status);
       const j = await r.json();
       const arr = (j.Data || []).map((n) => ({
@@ -861,7 +613,7 @@ function GaugeArc({ value, min = 0, max = 100, label, sub, color }) {
   const ang = Math.PI * (1 - pct);
   const R = 56, CX = 70, CY = 66;
   const x = CX + R * Math.cos(ang), y = CY - R * Math.sin(ang);
-  const col = color || (pct < 0.25 ? "#f6465d" : pct < 0.45 ? "#f5a623" : pct < 0.55 ? "#9aa3b8" : pct < 0.75 ? "#8bd44a" : "#0ecb81");
+  const col = color || (pct < 0.25 ? "#f6465d" : pct < 0.45 ? "#9aa3b8" : pct < 0.55 ? "#9aa3b8" : pct < 0.75 ? "#8bd44a" : "#0ecb81");
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
       <svg width="140" height="78" viewBox="0 0 140 78">
@@ -1533,7 +1285,7 @@ function LiqHeatmap({ wallets, whales, markets }) {
           <div className="legend">
             <span><span className="ldot" style={{ background: "#f6465d" }} />long liqs → forced sells</span>
             <span><span className="ldot" style={{ background: "#0ecb81" }} />short liqs → forced buys</span>
-            <span><span className="ldot" style={{ background: "#f5a623" }} />mark</span>
+            <span><span className="ldot" style={{ background: "#eef1f7" }} />mark</span>
           </div>
         )}
       </div>
@@ -1857,19 +1609,21 @@ const TABS = [
   { id: "news", label: "News & Sentiment", icon: Newspaper },
 ];
 
-function Sidebar({ tab, setTab, markets, news, macro }) {
+function Sidebar({ tab, setTab, tabs, markets, news, macro }) {
   const macroOk = macro.dxy || macro.glob;
+  const { user, profile, signOut } = useAuth();
+  const [acct, setAcct] = useState(false);
   return (
     <div className="sidebar">
       <div className="brand">
-        <div className="brand-dot"><img src={logoImg} alt="" style={{ width: 19, height: 19, objectFit: "contain" }} /></div>
+        <div className="brand-dot"><img src={logoImg} alt="" style={{ width: 28, height: 28, objectFit: "contain", position: "relative", zIndex: 1 }} /></div>
         <div>
-          <div className="brand-name">THE LAB TERMINAL</div>
+          <div className="brand-name" style={{ fontSize: 13.5 }}>THE LAB TERMINAL</div>
           <div className="brand-sub">V1.0</div>
         </div>
       </div>
       <div className="nav">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.id} className={"nav-item" + (tab === t.id ? " on" : "")} onClick={() => setTab(t.id)}>
             <t.icon size={15} className="nav-ic" /><span>{t.label}</span>
           </button>
@@ -1879,6 +1633,22 @@ function Sidebar({ tab, setTab, markets, news, macro }) {
         <div className="src-row"><b>HYPERLIQUID</b><span style={{ display: "flex", alignItems: "center", gap: 6 }}>{markets.latency != null && !markets.err ? <span>{markets.latency}ms</span> : null}<span className={"dot " + (markets.err ? "err" : markets.data ? "ok" : "warn")} /></span></div>
         <div className="src-row"><b>NEWS WIRE</b><span className={"dot " + (news.err ? "err" : news.items ? "ok" : "warn")} /></div>
         <div className="src-row"><b>MACRO</b><span className={"dot " + (macro.dxyErr && macro.globErr ? "err" : macroOk ? "ok" : "warn")} /></div>
+        <div style={{ position: "relative" }}>
+          <button className="nav-item" style={{ width: "100%" }} onClick={() => setAcct((v) => !v)}>
+            <User size={15} className="nav-ic" />
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{user ? user.email : "Account"}</span>
+            <ChevronDown size={13} className="nav-ic" />
+          </button>
+          {acct ? (
+            <div className="acct-pop" style={{ bottom: 42, top: "auto", right: 0, left: 0 }}>
+              <div className="acct-row">
+                <div className="acct-email">{user && user.email}</div>
+                {profile && profile.is_admin ? <span className="acct-badge">ADMIN</span> : null}
+              </div>
+              <button className="acct-item" onClick={signOut}><LogOut size={13} /> Sign out</button>
+            </div>
+          ) : null}
+        </div>
         <div className="side-tag">MONITORING ONLY · NO EXECUTION<br />FREE PUBLIC FEEDS · NO API KEYS</div>
       </div>
     </div>
@@ -1887,14 +1657,14 @@ function Sidebar({ tab, setTab, markets, news, macro }) {
 
 /* ════════════════════════════ APP ════════════════════════════ */
 
-export default function App() {
+function Dashboard() {
   const [tab, setTab] = useState("overview");
-  const [watchlist, setWatchlist] = usePersistent("mit:watchlist", DEFAULT_WATCH);
-  const [wallets, setWallets] = usePersistent("mit:wallets", []);
-  const [rules, setRules, rulesReady] = usePersistent("mit:rules", DEFAULT_RULES);
-  const [log, setLog] = usePersistent("mit:log", []);
-  const [settings, setSettings] = usePersistent("mit:settings", { sound: false, chartMode: "tv", interval: "1h" });
-  const [selSym, setSelSym] = usePersistent("mit:sym", "BTC");
+  const [watchlist, setWatchlist] = usePref("watchlist", DEFAULT_WATCH);
+  const [wallets, setWallets] = usePref("wallets", []);
+  const [rules, setRules, rulesReady] = usePref("rules", DEFAULT_RULES);
+  const [log, setLog] = usePref("log", []);
+  const [settings, setSettings] = usePref("settings", { sound: false, chartMode: "tv", interval: "1h" });
+  const [selSym, setSelSym] = usePref("sym", "BTC");
 
   const markets = useMarkets();
   const addrList = useMemo(() => wallets.map((w) => w.addr), [wallets]);
@@ -1996,7 +1766,9 @@ export default function App() {
     });
   }, [whales.tick]); // eslint-disable-line
 
-  const curTab = TABS.find((t) => t.id === tab);
+  const { profile } = useAuth();
+  const tabs = useMemo(() => profile && profile.is_admin ? [...TABS, { id: "admin", label: "Admin", icon: KeyRound }] : TABS, [profile]);
+  const curTab = tabs.find((t) => t.id === tab);
 
   return (
     <div className="app">
@@ -2004,7 +1776,7 @@ export default function App() {
       <datalist id="hl-universe">
         {(markets.data ? markets.data.universe : []).map((c) => <option key={c} value={c} />)}
       </datalist>
-      <Sidebar tab={tab} setTab={setTab} markets={markets} news={news} macro={macro} />
+      <Sidebar tab={tab} setTab={setTab} tabs={tabs} markets={markets} news={news} macro={macro} />
       <div className="main-col">
         <div className="hdr">
           <div>
@@ -2030,6 +1802,7 @@ export default function App() {
               {tab === "charts" ? <ChartTab markets={markets} selSym={selSym} setSelSym={setSelSym} watchlist={watchlist} settings={settings} setSettings={setSettings} /> : null}
               {tab === "whale" ? <WhaleTab wallets={wallets} setWallets={setWallets} whales={whales} markets={markets} setSelSym={setSelSym} /> : null}
               {tab === "news" ? <NewsTab news={news} fng={fng} /> : null}
+              {tab === "admin" && profile && profile.is_admin ? <Admin /> : null}
             </ErrorBoundary>
           </div>
         </div>
@@ -2041,5 +1814,44 @@ export default function App() {
           universe={markets.data ? markets.data.universe : []} settings={settings} setSettings={setSettings} />
       </Slideover>
     </div>
+  );
+}
+
+/* ════════════════════════════ AUTH ROUTER ════════════════════════════ */
+
+function AuthGlobalStyle() {
+  return <style>{CSS + "\n" + AUTH_CSS}</style>;
+}
+
+function Splash() {
+  return (
+    <div className="auth-shell">
+      <AuthGlobalStyle />
+      <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
+        <div className="auth-logo" style={{ margin: "0 auto 16px" }}><img src={logoImg} alt="" /></div>
+        <div className="auth-spin" />
+      </div>
+    </div>
+  );
+}
+
+function Routed() {
+  const { status } = useAuth();
+  if (status === "loading") return <Splash />;
+  if (status === "signedOut") return <><AuthGlobalStyle /><Auth /></>;
+  if (status === "needsInvite") return <><AuthGlobalStyle /><InviteGate /></>;
+  // ready
+  return (
+    <PrefsProvider>
+      <Dashboard />
+    </PrefsProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routed />
+    </AuthProvider>
   );
 }
