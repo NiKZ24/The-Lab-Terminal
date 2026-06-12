@@ -1,18 +1,17 @@
 import React, { useState } from "react";
 import { ArrowRight, X } from "lucide-react";
-import ParticleHero from "./ParticleHero";
+import FlaskWireframe from "./ParticleHero";
 import AuthCard from "./AuthCard";
 import logoImg from "../assets/logo.png";
 
 export default function Landing() {
   const [showAuth, setShowAuth] = useState(false);
   const [startMode, setStartMode] = useState("login");
-
   const open = (m) => { setStartMode(m); setShowAuth(true); };
 
   return (
     <div className="landing">
-      <ParticleHero />
+      <FlaskWireframe />
 
       <nav className="landing-nav">
         <div className="ln-brand">
@@ -25,14 +24,14 @@ export default function Landing() {
         </div>
       </nav>
 
-      <div className="landing-center">
-        <div className="hero-flask"><img src={logoImg} alt="The Lab" /></div>
+      <div className="landing-hero">
         <div className="hero-eyebrow">Market Intelligence · Invite Only</div>
         <h1 className="hero-title">THE LAB<br />TERMINAL</h1>
+        <div className="hero-powered">Powered by <b>Hyperliquid</b> · CoinGecko · Macro feeds</div>
         <p className="hero-sub">
           A precision monitoring terminal for crypto perps, spot &amp; macro — live whale positions,
           funding &amp; open-interest screens, liquidation maps, news sentiment and custom alerts.
-          Pure situational awareness. No execution.
+          <br /><b style={{ color: "var(--txt)" }}>Pure situational awareness. No execution.</b>
         </p>
         <div className="hero-cta">
           <button className="btn-enter" onClick={() => open("login")}>Enter Terminal <ArrowRight size={14} /></button>

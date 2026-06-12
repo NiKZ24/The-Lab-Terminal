@@ -1,126 +1,132 @@
 import React, { useEffect, useRef } from "react";
 
 /*
- * ParticleHero — background canvas animation for the landing page.
- *
- * Behaviour (inspired by motion-heavy crypto landings, built from scratch):
- *  1. ON-LOAD: particles start scattered at random screen positions, then ease
- *     into orbital formation around the center over ~1.6s.
- *  2. IDLE: particles orbit the center at varied radii/speeds with organic
- *     sine-noise drift; nearby particles are linked with faint lines.
- *
- * Modular by design: the visual is entirely particle-driven and theme-agnostic.
- * To change the look, tweak the CONFIG block below (count, colors, sizes).
- * The center object (flask logo) is rendered as a DOM element by the parent,
- * layered above this canvas — swap it there.
+ * FlaskWireframe — interactive 3D point-cloud of the flask logo for the landing.
+ *  - Points trace the flask silhouette (neck + conical Erlenmeyer body + base),
+ *    given depth around a cylinder of revolution so it reads as a 3D solid.
+ *  - Hand-rolled 3D projection on a 2D canvas (no Three.js dependency).
+ *  - Continuous idle spin + tilts toward the mouse pointer.
+ *  - Adjacent ring points linked with faint lines for the wireframe/lab look.
+ *  Modular: tweak CONFIG to restyle; flask geometry lives in buildFlask().
  */
 
 const CONFIG = {
-  count: 150,
-  color: "238,241,247",   // rgb of --acc (B&W identity)
-  linkDist: 116,          // px distance under which particles get linked
-  linkAlpha: 0.10,
-  dotMin: 0.6,
-  dotMax: 2.1,
-  introMs: 1600,
+  color: "238,241,247",
+  linkDist: 34,
+  linkAlpha: 0.18,
+  introMs: 1500,
+  autoSpin: 0.0024,
 };
 
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
-export default function ParticleHero() {
+function buildFlask() {
+  const pts = [];
+  const RING = (yy, r, n, jitter) => {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.15;
+      const rr = r + (jitter ? (Math.random() - 0.5) * jitter : 0);
+      pts.push([Math.cos(a) * rr, yy, Math.sin(a) * rr]);
+    }
+  };
+  // neck
+  const neckTop = 1.0, neckBot = 0.42, neckR = 0.17;
+  for (let s = 0; s <= 9; s++) { const t = s / 9; RING(neckTop - t * (neckTop - neckBot), neckR, 14, 0.01); }
+  RING(neckTop, neckR * 1.25, 18, 0.005);
+  // conical body
+  const bodyTop = 0.42, bodyBot = -0.92, rTop = neckR, rBot = 0.74, rows = 22;
+  for (let s = 0; s <= rows; s++) {
+    const t = s / rows, e = Math.pow(t, 1.18);
+    const y = bodyTop - t * (bodyTop - bodyBot), r = rTop + e * (rBot - rTop);
+    RING(y, r, Math.round(16 + e * 40), 0.012);
+  }
+  // base disk
+  const baseY = -0.92, baseR = 0.74;
+  for (let ring = 0; ring < 5; ring++) { const r = baseR * (ring / 5); RING(baseY, r, Math.max(6, Math.round(r * 40)), 0.01); }
+  RING(baseY, baseR, 46, 0.005);
+  // liquid surface ring
+  RING(-0.45, 0.45, 30, 0.01);
+  return pts;
+}
+
+export default function FlaskWireframe() {
   const cvsRef = useRef(null);
   const rafRef = useRef(0);
-  const startRef = useRef(0);
+  const stateRef = useRef({ rotY: 0, rotX: 0.12, tgtX: 0.12, tgtY: 0, rotYPtr: 0, start: 0 });
 
   useEffect(() => {
-    const cvs = cvsRef.current;
-    if (!cvs) return;
+    const cvs = cvsRef.current; if (!cvs) return;
     const ctx = cvs.getContext("2d");
-    let W = 0, H = 0, CX = 0, CY = 0, dpr = 1;
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const parts = [];
-    const seed = () => {
-      parts.length = 0;
-      const minDim = Math.min(W, H);
-      for (let i = 0; i < CONFIG.count; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        // orbital radius: clustered band around center, a few far out
-        const rBand = Math.pow(Math.random(), 0.7);
-        const radius = minDim * (0.10 + rBand * 0.42);
-        parts.push({
-          ang,
-          radius,
-          speed: (Math.random() * 0.10 + 0.03) * (Math.random() < 0.5 ? 1 : -1) * 0.004 * 60,
-          // start scattered anywhere on screen
-          sx: Math.random() * W,
-          sy: Math.random() * H,
-          size: CONFIG.dotMin + Math.random() * (CONFIG.dotMax - CONFIG.dotMin),
-          nA: Math.random() * Math.PI * 2,
-          nSpeed: Math.random() * 0.6 + 0.2,
-          nAmp: Math.random() * 14 + 4,
-          x: 0, y: 0,
-        });
-      }
-    };
+    let W = 0, H = 0, CX = 0, CY = 0, dpr = 1, scale = 200;
+    const base = buildFlask();
+    const scatter = base.map(() => [(Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6]);
 
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = cvs.clientWidth; H = cvs.clientHeight;
-      CX = W / 2; CY = H * 0.46;
+      W = cvs.clientWidth; H = cvs.clientHeight; CX = W / 2; CY = H * 0.46;
+      scale = Math.min(W, H) * 0.30;
       cvs.width = W * dpr; cvs.height = H * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      seed();
     };
+    const ro = new ResizeObserver(resize); ro.observe(cvs); resize();
 
-    const ro = new ResizeObserver(resize);
-    ro.observe(cvs);
-    resize();
-    startRef.current = performance.now();
+    const onMove = (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = (e.clientY / window.innerHeight) * 2 - 1;
+      stateRef.current.tgtY = nx * 0.6;
+      stateRef.current.tgtX = 0.12 + ny * 0.4;
+    };
+    window.addEventListener("mousemove", onMove);
+    stateRef.current.start = performance.now();
 
     const frame = (now) => {
-      const elapsed = now - startRef.current;
-      const intro = reduce ? 1 : easeOutCubic(Math.min(1, elapsed / CONFIG.introMs));
-      const t = now * 0.001;
+      const st = stateRef.current;
+      const intro = reduce ? 1 : easeOutCubic(Math.min(1, (now - st.start) / CONFIG.introMs));
+      if (!reduce) {
+        st.rotY += CONFIG.autoSpin;
+        st.rotX += (st.tgtX - st.rotX) * 0.05;
+        st.rotYPtr += (st.tgtY - st.rotYPtr) * 0.05;
+      }
+      const ry = st.rotY + st.rotYPtr, rx = st.rotX;
+      const cosY = Math.cos(ry), sinY = Math.sin(ry), cosX = Math.cos(rx), sinX = Math.sin(rx);
       ctx.clearRect(0, 0, W, H);
 
-      // compute live positions
-      for (const p of parts) {
-        if (!reduce) { p.ang += p.speed * 0.016; p.nA += p.nSpeed * 0.016; }
-        const ox = Math.cos(p.ang) * p.radius + Math.cos(p.nA) * p.nAmp;
-        const oy = Math.sin(p.ang) * p.radius * 0.82 + Math.sin(p.nA * 1.3) * p.nAmp;
-        const tx = CX + ox, ty = CY + oy;
-        // ease from scattered start → orbital target
-        p.x = p.sx + (tx - p.sx) * intro;
-        p.y = p.sy + (ty - p.sy) * intro;
+      const proj = new Array(base.length);
+      for (let i = 0; i < base.length; i++) {
+        const b = base[i], s = scatter[i];
+        const x = s[0] + (b[0] - s[0]) * intro, y = s[1] + (b[1] - s[1]) * intro, z = s[2] + (b[2] - s[2]) * intro;
+        const x1 = x * cosY - z * sinY, z1 = x * sinY + z * cosY;
+        const y1 = y * cosX - z1 * sinX, z2 = y * sinX + z1 * cosX;
+        const persp = 1 / (1 + z2 * 0.28);
+        proj[i] = { sx: CX + x1 * scale * persp, sy: CY - y1 * scale * persp, d: z2, p: persp };
       }
 
-      // links
       ctx.lineWidth = 1;
-      for (let i = 0; i < parts.length; i++) {
-        for (let j = i + 1; j < parts.length; j++) {
-          const a = parts[i], b = parts[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d2 = dx * dx + dy * dy;
-          if (d2 < CONFIG.linkDist * CONFIG.linkDist) {
-            const al = (1 - Math.sqrt(d2) / CONFIG.linkDist) * CONFIG.linkAlpha * intro;
+      for (let i = 0; i < proj.length; i++) {
+        const a = proj[i];
+        for (let j = i + 1; j < Math.min(i + 6, proj.length); j++) {
+          const c = proj[j];
+          const dx = a.sx - c.sx, dy = a.sy - c.sy, dd = dx * dx + dy * dy;
+          if (dd < CONFIG.linkDist * CONFIG.linkDist) {
+            const depth = (a.d + c.d) / 2;
+            const al = (1 - Math.sqrt(dd) / CONFIG.linkDist) * CONFIG.linkAlpha * intro * (depth > 0 ? 0.5 : 1);
             ctx.strokeStyle = "rgba(" + CONFIG.color + "," + al.toFixed(3) + ")";
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); ctx.stroke();
           }
         }
       }
-      // dots
-      for (const p of parts) {
-        const tw = reduce ? 1 : 0.65 + 0.35 * Math.sin(t * 1.4 + p.nA);
-        ctx.fillStyle = "rgba(" + CONFIG.color + "," + (0.55 * intro * tw).toFixed(3) + ")";
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < proj.length; i++) {
+        const a = proj[i], front = a.d < 0;
+        const r = (front ? 1.7 : 1.0) * a.p, al = (front ? 0.85 : 0.4) * intro;
+        ctx.fillStyle = "rgba(" + CONFIG.color + "," + al.toFixed(3) + ")";
+        ctx.beginPath(); ctx.arc(a.sx, a.sy, Math.max(0.5, r), 0, Math.PI * 2); ctx.fill();
       }
 
       if (!reduce) rafRef.current = requestAnimationFrame(frame);
     };
     rafRef.current = requestAnimationFrame(frame);
-
-    return () => { cancelAnimationFrame(rafRef.current); ro.disconnect(); };
+    return () => { cancelAnimationFrame(rafRef.current); ro.disconnect(); window.removeEventListener("mousemove", onMove); };
   }, []);
 
   return <canvas ref={cvsRef} className="ph-canvas" />;
