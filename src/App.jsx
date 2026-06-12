@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import logoImg from "./assets/logo.png";
 import { Activity, AlertTriangle, BarChart3, Bell, Clock, ExternalLink, Eye, Flame, Gauge, Layers, LineChart, Newspaper, Plus, Radio, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Volume2, VolumeX, Wallet, X, Zap } from "lucide-react";
 
 /* ════════════════════════════ CONSTANTS ════════════════════════════ */
@@ -1861,10 +1862,10 @@ function Sidebar({ tab, setTab, markets, news, macro }) {
   return (
     <div className="sidebar">
       <div className="brand">
-        <div className="brand-dot"><Activity size={14} /></div>
+        <div className="brand-dot"><img src={logoImg} alt="" style={{ width: 19, height: 19, objectFit: "contain" }} /></div>
         <div>
           <div className="brand-name">THE LAB TERMINAL</div>
-          <div className="brand-sub">MARKET INTEL · V1.0</div>
+          <div className="brand-sub">V1.0</div>
         </div>
       </div>
       <div className="nav">
