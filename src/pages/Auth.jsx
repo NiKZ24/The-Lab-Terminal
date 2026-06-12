@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Activity, ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import logoImg from "../assets/logo.png";
@@ -31,6 +31,23 @@ export default function Auth() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null); // {type: 'err'|'ok'|'info', text}
+
+  // If we arrived from an email link that failed (expired/invalid), the URL carries
+  // an #error=... hash. Surface it here cleanly instead of leaving a broken page.
+  useEffect(() => {
+    const h = window.location.hash || "";
+    if (h.includes("error")) {
+      const p = new URLSearchParams(h.replace(/^#/, ""));
+      const desc = (p.get("error_description") || p.get("error") || "").replace(/\+/g, " ");
+      if (desc) {
+        setMode("login");
+        setMsg({ type: "err", text: desc.charAt(0).toUpperCase() + desc.slice(1) + ". Please request a new link or log in." });
+      }
+      // clean the hash so the message doesn't persist on refresh
+      try { window.history.replaceState(null, "", window.location.pathname + window.location.search); } catch (e) { /* ignore */ }
+    }
+  }, []);
+
 
   const reset = () => { setMsg(null); setPw(""); setPw2(""); setCode(""); };
   const goto = (m) => { reset(); setMode(m); };

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import logoImg from "./assets/logo.png";
 import { Activity, AlertTriangle, BarChart3, Bell, Clock, ExternalLink, Eye, Flame, Gauge, Layers, LineChart, Newspaper, Plus, Radio, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Volume2, VolumeX, Wallet, X, Zap, KeyRound, LogOut, User, ChevronDown } from "lucide-react";
-import { CSS, AUTH_CSS } from "./styles.js";
+import { CSS, AUTH_CSS, LANDING_CSS } from "./styles.js";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { PrefsProvider, usePref } from "./auth/prefs.jsx";
-import Auth from "./pages/Auth";
+import Landing from "./pages/Landing";
 import InviteGate from "./pages/InviteGate";
 import Admin from "./pages/Admin";
 
@@ -1820,7 +1820,7 @@ function Dashboard() {
 /* ════════════════════════════ AUTH ROUTER ════════════════════════════ */
 
 function AuthGlobalStyle() {
-  return <style>{CSS + "\n" + AUTH_CSS}</style>;
+  return <style>{CSS + "\n" + AUTH_CSS + "\n" + LANDING_CSS}</style>;
 }
 
 function Splash() {
@@ -1838,7 +1838,7 @@ function Splash() {
 function Routed() {
   const { status } = useAuth();
   if (status === "loading") return <Splash />;
-  if (status === "signedOut") return <><AuthGlobalStyle /><Auth /></>;
+  if (status === "signedOut") return <><AuthGlobalStyle /><Landing /></>;
   if (status === "needsInvite") return <><AuthGlobalStyle /><InviteGate /></>;
   // ready
   return (

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import logoImg from "../assets/logo.png";
-import { PENDING_CODE_KEY } from "./Auth";
+import { PENDING_CODE_KEY } from "./AuthCard";
 
 export default function InviteGate() {
   const { redeemInvite, signOut, user } = useAuth();
