@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, KeyRound, Lock, Mail } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import logoImg from "../assets/logo.png";
+import { LogoMark } from "../brand/Logo";
 
 const PENDING_CODE_KEY = "thelab:pendingInviteCode";
 
@@ -98,7 +98,7 @@ export default function AuthCard({ startMode = "login" }) {
   return (
     <div className="auth-card" onMouseDown={(e) => e.stopPropagation()}>
       <div className="auth-brand">
-        <div className="auth-logo"><img src={logoImg} alt="" style={{ width: 56, height: 56, objectFit: "contain" }} /></div>
+        <div className="auth-logo"><LogoMark size={56} glow style={{ color: "#f4f6fb" }} /></div>
         <div>
           <div className="auth-title">THE LAB TERMINAL</div>
           <div className="auth-sub">PERPS · SPOT · ON-CHAIN · MACRO</div>
