@@ -76,6 +76,18 @@ body{background:var(--bg);overflow:hidden}
 .icon-btn.on{color:var(--acc);border-color:rgba(255,255,255,.4);background:var(--acc-soft);box-shadow:0 0 12px rgba(255,255,255,.12)}
 .bell-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--dn);color:#fff;font-family:var(--mono);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(251,62,87,.6)}
 
+/* ── top command bar ── */
+.cmd-search{display:flex;align-items:center;gap:9px;height:32px;padding:0 11px;min-width:210px;max-width:300px;border:1px solid var(--line);border-radius:4px;background:var(--bg2);color:var(--txt3);font-family:var(--mono);font-size:11.5px;cursor:text;transition:border-color .14s ease}
+.cmd-search:hover{border-color:var(--line2);color:var(--txt2)}
+.cmd-search>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmd-search .kbd{margin-left:auto;flex-shrink:0}
+.hdr-health{display:flex;align-items:center;gap:13px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--txt3);padding:0 2px}
+.hdr-health .hh{display:flex;align-items:center;gap:5px;white-space:nowrap}
+@media(max-width:1180px){.hdr-health{display:none}}
+.nav-key{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--txt3);border:1px solid var(--line);border-radius:2px;padding:0 4px;line-height:14px}
+.nav-item.on .nav-key{color:var(--acc);border-color:rgba(234,240,251,.26)}
+@media(max-width:1020px){.nav-key{display:none}}
+
 /* ── main / grid ── */
 .main{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;min-height:0;
   background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);

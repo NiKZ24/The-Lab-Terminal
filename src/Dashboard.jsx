@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Bell, ChevronDown, Eye, KeyRound, Layers, LineChart, LogOut, Newspaper, Search, User, Volume2, VolumeX, Zap } from "lucide-react";
 import { useAuth } from "./auth/AuthProvider";
 import { usePref } from "./auth/prefs";
-import { LogoMark } from "./brand/Logo";
+import logoImg from "./assets/logo.png";
 import { Clocks, CommandPalette, ErrorBoundary, Num, Pct, Slideover, Ticker, Toasts } from "./components/index";
 import { useFng, useLeaderboard, useMacro, useMarkets, useNews, usePositioning, useSpot, useWhales } from "./hooks/data";
 import { DEFAULT_RULES, DEFAULT_WATCH } from "./lib/constants";
 import { beep, fmtPct, fmtPx, fmtUsd, oiLookback, shortAddr, uid } from "./lib/format";
-import Admin from "./pages/Admin";
 import { AlertsBody } from "./panels/alerts";
-import { ChartTab } from "./panels/charts";
-import { DerivTab } from "./panels/derivatives";
-import { NewsTab } from "./panels/news";
 import { OverviewTab } from "./panels/overview";
 import { WalletProfile, WhaleTab } from "./panels/smartMoney";
 import { CSS } from "./styles";
+
+// Heavy / non-default tabs are code-split into their own chunks, loaded on demand.
+const ChartTab = lazy(() => import("./panels/charts").then((m) => ({ default: m.ChartTab })));
+const DerivTab = lazy(() => import("./panels/derivatives").then((m) => ({ default: m.DerivTab })));
+const NewsTab = lazy(() => import("./panels/news").then((m) => ({ default: m.NewsTab })));
+const Admin = lazy(() => import("./pages/Admin"));
 
 const TABS = [
   { id: "overview", label: "Overview", icon: Layers },
@@ -24,46 +26,25 @@ const TABS = [
   { id: "news", label: "News & Sentiment", icon: Newspaper },
 ];
 
-function Sidebar({ tab, setTab, tabs, markets, news, macro }) {
-  const macroOk = macro.dxy || macro.glob;
-  const { user, profile, signOut } = useAuth();
-  const [acct, setAcct] = useState(false);
+function Sidebar({ tab, setTab, tabs }) {
   return (
     <div className="sidebar">
       <div className="brand">
-        <div className="brand-dot"><LogoMark size={30} glow style={{ color: "#f4f6fb" }} /></div>
+        <div className="brand-dot"><img src={logoImg} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} /></div>
         <div>
           <div className="brand-name" style={{ fontSize: 13.5 }}>THE LAB TERMINAL</div>
-          <div className="brand-sub">V1.0</div>
+          <div className="brand-sub">V2.0</div>
         </div>
       </div>
       <div className="nav">
-        {tabs.map((t) => (
+        {tabs.map((t, i) => (
           <button key={t.id} className={"nav-item" + (tab === t.id ? " on" : "")} onClick={() => setTab(t.id)}>
             <t.icon size={15} className="nav-ic" /><span>{t.label}</span>
+            {i < 9 ? <span className="nav-key">{i + 1}</span> : null}
           </button>
         ))}
       </div>
       <div className="side-foot">
-        <div className="src-row"><b>HYPERLIQUID</b><span style={{ display: "flex", alignItems: "center", gap: 6 }}>{markets.latency != null && !markets.err ? <span>{markets.latency}ms</span> : null}<span className={"dot " + (markets.err ? "err" : markets.data ? "ok" : "warn")} /></span></div>
-        <div className="src-row"><b>NEWS WIRE</b><span className={"dot " + (news.err ? "err" : news.items ? "ok" : "warn")} /></div>
-        <div className="src-row"><b>MACRO</b><span className={"dot " + (macro.dxyErr && macro.globErr ? "err" : macroOk ? "ok" : "warn")} /></div>
-        <div style={{ position: "relative" }}>
-          <button className="nav-item" style={{ width: "100%" }} onClick={() => setAcct((v) => !v)}>
-            <User size={15} className="nav-ic" />
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{user ? user.email : "Account"}</span>
-            <ChevronDown size={13} className="nav-ic" />
-          </button>
-          {acct ? (
-            <div className="acct-pop" style={{ bottom: 42, top: "auto", right: 0, left: 0 }}>
-              <div className="acct-row">
-                <div className="acct-email">{user && user.email}</div>
-                {profile && profile.is_admin ? <span className="acct-badge">ADMIN</span> : null}
-              </div>
-              <button className="acct-item" onClick={signOut}><LogOut size={13} /> Sign out</button>
-            </div>
-          ) : null}
-        </div>
         <div className="side-tag">MONITORING ONLY · NO EXECUTION<br />FREE PUBLIC FEEDS · NO API KEYS</div>
       </div>
     </div>
@@ -101,6 +82,7 @@ function Dashboard() {
   const [unread, setUnread] = useState(0);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [profileAddr, setProfileAddr] = useState(null);
+  const [acct, setAcct] = useState(false);
   const cooldown = useRef(new Map());
   const soundRef = useRef(false);
   useEffect(() => { soundRef.current = !!settings.sound; }, [settings.sound]);
@@ -190,7 +172,7 @@ function Dashboard() {
     });
   }, [whales.tick]); // eslint-disable-line
 
-  const { profile } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const tabs = useMemo(() => profile && profile.is_admin ? [...TABS, { id: "admin", label: "Admin", icon: KeyRound }] : TABS, [profile]);
   const curTab = tabs.find((t) => t.id === tab);
   const hdrC = markets.data ? markets.data.byCoin[selSym] : null;
@@ -215,21 +197,26 @@ function Dashboard() {
       <datalist id="hl-universe">
         {(markets.data ? markets.data.universe : []).map((c) => <option key={c} value={c} />)}
       </datalist>
-      <Sidebar tab={tab} setTab={setTab} tabs={tabs} markets={markets} news={news} macro={macro} />
+      <Sidebar tab={tab} setTab={setTab} tabs={tabs} />
       <div className="main-col">
         <div className="hdr">
-          <div>
-            <div className="hdr-title">{curTab ? curTab.label : ""}</div>
-            <div className="hdr-sub">PERPS · SPOT · ON-CHAIN · MACRO — MONITORING ONLY</div>
-          </div>
+          <button className="cmd-search" title="Command palette  (Ctrl/Cmd-K)" onClick={() => setCmdOpen(true)}>
+            <Search size={13} />
+            <span>Search symbols, wallets…</span>
+            <span className="kbd">⌘K</span>
+          </button>
           <div className="hdr-sym" title="Active symbol — click any row to change it">
             <span className="hs-lab">SYM</span>
             <span className="hs-sym">{selSym}</span>
             {hdrC ? <><Num v={hdrC.mark} /> <Pct v={hdrC.chg} /></> : <span className="dim2">—</span>}
           </div>
           <div className="hdr-right">
+            <div className="hdr-health">
+              <span className="hh" title="Hyperliquid feed"><span className={"dot " + (markets.err ? "err" : markets.data ? "ok" : "warn")} />HL{markets.latency != null && !markets.err ? " " + markets.latency + "ms" : ""}</span>
+              <span className="hh" title="News wire"><span className={"dot " + (news.err ? "err" : news.items ? "ok" : "warn")} />NEWS</span>
+              <span className="hh" title="Macro feeds"><span className={"dot " + (macro.dxyErr && macro.globErr ? "err" : (macro.dxy || macro.glob) ? "ok" : "warn")} />MACRO</span>
+            </div>
             <Clocks />
-            <button className="icon-btn" title="Command palette  (Ctrl/Cmd-K)" onClick={() => setCmdOpen(true)}><Search size={14} /></button>
             <button className={"icon-btn" + (settings.sound ? " on" : "")} title={settings.sound ? "Sound alerts: on" : "Sound alerts: off"}
               onClick={() => { const v = !settings.sound; setSettings((s) => ({ ...s, sound: v })); if (v) beep(); }}>
               {settings.sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
@@ -238,17 +225,31 @@ function Dashboard() {
               <Bell size={14} />
               {unread > 0 ? <span className="bell-badge">{unread > 99 ? "99+" : unread}</span> : null}
             </button>
+            <div style={{ position: "relative" }}>
+              <button className={"icon-btn" + (acct ? " on" : "")} title="Account" onClick={() => setAcct((v) => !v)}><User size={14} /></button>
+              {acct ? (
+                <div className="acct-pop" style={{ top: 42, right: 0 }}>
+                  <div className="acct-row">
+                    <div className="acct-email">{user && user.email}</div>
+                    {profile && profile.is_admin ? <span className="acct-badge">ADMIN</span> : null}
+                  </div>
+                  <button className="acct-item" onClick={signOut}><LogOut size={13} /> Sign out</button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="main">
           <div className="tabfade" key={tab}>
             <ErrorBoundary resetKey={tab + ":" + selSym} label={"The " + (curTab ? curTab.label : "") + " module"}>
+              <Suspense fallback={<div className="skel" style={{ height: "62vh", margin: 4, borderRadius: 4 }} />}>
               {tab === "overview" ? <OverviewTab markets={markets} watchlist={watchlist} setWatchlist={setWatchlist} selSym={selSym} setSelSym={setSelSym} macro={macro} fng={fng} spot={spot} /> : null}
               {tab === "charts" ? <ChartTab markets={markets} selSym={selSym} setSelSym={setSelSym} watchlist={watchlist} settings={settings} setSettings={setSettings} /> : null}
               {tab === "whale" ? <WhaleTab wallets={wallets} setWallets={setWallets} whales={whales} markets={markets} setSelSym={setSelSym} lb={lb} pos={pos} onProfile={setProfileAddr} /> : null}
               {tab === "deriv" ? <DerivTab markets={markets} selSym={selSym} setSelSym={setSelSym} watchlist={watchlist} /> : null}
               {tab === "news" ? <NewsTab news={news} fng={fng} /> : null}
               {tab === "admin" && profile && profile.is_admin ? <Admin /> : null}
+              </Suspense>
             </ErrorBoundary>
           </div>
         </div>

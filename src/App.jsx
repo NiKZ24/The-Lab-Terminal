@@ -3,7 +3,7 @@ import { AlertTriangle } from "lucide-react";
 import { Dashboard } from "./Dashboard";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { PrefsProvider } from "./auth/prefs";
-import { LogoMark } from "./brand/Logo";
+import logoImg from "./assets/logo.png";
 import InviteGate from "./pages/InviteGate";
 import Landing from "./pages/Landing";
 import { AUTH_CSS, CSS, LANDING_CSS } from "./styles";
@@ -17,7 +17,7 @@ function Splash() {
     <div className="auth-shell">
       <AuthGlobalStyle />
       <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-        <div className="auth-logo" style={{ margin: "0 auto 16px" }}><LogoMark size={54} glow style={{ color: "#f4f6fb" }} /></div>
+        <div className="auth-logo" style={{ margin: "0 auto 16px" }}><img src={logoImg} alt="" style={{ width: 54, height: 54, objectFit: "contain" }} /></div>
         <div className="auth-spin" />
       </div>
     </div>

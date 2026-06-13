@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { LogoMark } from "../brand/Logo";
+import logoImg from "../assets/logo.png";
 import { PENDING_CODE_KEY } from "./AuthCard";
 
 export default function InviteGate() {
@@ -58,7 +58,7 @@ export default function InviteGate() {
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="auth-logo"><LogoMark size={56} glow style={{ color: "#f4f6fb" }} /></div>
+          <div className="auth-logo"><img src={logoImg} alt="" style={{ width: 56, height: 56, objectFit: "contain" }} /></div>
           <div>
             <div className="auth-title">THE LAB TERMINAL</div>
             <div className="auth-sub">ONE STEP LEFT</div>
