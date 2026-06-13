@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ArrowRight, X } from "lucide-react";
 import FlaskWireframe from "./ParticleHero";
 import AuthCard from "./AuthCard";
-import { FlaskMark } from "../components/Brand";
+import logoImg from "../assets/logo.png";
 
 const DISCORD_URL = "https://discord.gg/wqCbPrDQmD";
 
@@ -38,7 +38,7 @@ export default function Landing() {
 
       <nav className="landing-nav">
         <div className="ln-brand">
-          <div className="ln-logo"><FlaskMark size={26} /></div>
+          <div className="ln-logo"><img src={logoImg} alt="" style={{ width: 28, height: 28, objectFit: "contain" }} /></div>
           <div className="ln-name">THE LAB <span>TERMINAL</span></div>
         </div>
         <div className="ln-right">

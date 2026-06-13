@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { FlaskMark } from "./components/Brand";
+import logoImg from "./assets/logo.png";
 import { Activity, AlertTriangle, BarChart3, Bell, Clock, ExternalLink, Eye, Flame, Gauge, Layers, LineChart, Newspaper, Plus, Radio, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Volume2, VolumeX, Wallet, X, Zap, KeyRound, LogOut, User, ChevronDown } from "lucide-react";
 import { CSS, AUTH_CSS, LANDING_CSS } from "./styles.js";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
@@ -1834,7 +1834,7 @@ function Sidebar({ tab, setTab, tabs, markets, news, macro }) {
   return (
     <div className="sidebar">
       <div className="brand">
-        <div className="brand-dot"><FlaskMark size={30} /></div>
+        <div className="brand-dot"><img src={logoImg} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} /></div>
         <div>
           <div className="brand-name" style={{ fontSize: 13.5 }}>THE LAB TERMINAL</div>
           <div className="brand-sub">V1.0</div>
@@ -2059,7 +2059,7 @@ function Splash() {
     <div className="auth-shell">
       <AuthGlobalStyle />
       <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-        <div className="auth-logo" style={{ margin: "0 auto 16px" }}><FlaskMark size={50} /></div>
+        <div className="auth-logo" style={{ margin: "0 auto 16px" }}><img src={logoImg} alt="" style={{ width: 54, height: 54, objectFit: "contain" }} /></div>
         <div className="auth-spin" />
       </div>
     </div>
