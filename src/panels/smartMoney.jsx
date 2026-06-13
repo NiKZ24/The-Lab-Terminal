@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ExternalLink, Eye, Flame, Layers, Plus, Radio, TrendingUp, User, Wallet } from "lucide-react";
+import { ExternalLink, Eye, Flame, Layers, Plus, Radio, TrendingUp, User, Wallet, X } from "lucide-react";
 import { EmptyState, ErrState, Num, Panel, Pct, SkeletonRows, Slideover, Stat } from "../components/index";
 import { useTradeTape, useWalletProfile } from "../hooks/data";
 import { useNow } from "../hooks/timing";

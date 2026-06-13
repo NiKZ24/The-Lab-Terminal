@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { BarChart3, Gauge, Layers, Plus, TrendingUp } from "lucide-react";
+import { BarChart3, Gauge, Layers, Plus, TrendingUp, X } from "lucide-react";
 import { ErrState, Num, Panel, Pct, SkeletonRows, Spark, Stat } from "../components/index";
 import { useNow } from "../hooks/timing";
 import { CG_IDS } from "../lib/constants";

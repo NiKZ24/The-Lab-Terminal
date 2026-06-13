@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { AlertTriangle, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, RefreshCw, Search, X } from "lucide-react";
 import { useNow } from "../hooks/timing";
 import { clamp, fmtPct, fmtPx, pctClass } from "../lib/format";
 
